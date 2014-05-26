@@ -21,7 +21,7 @@ created_folders=[]
 parser = OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} [options] <project>"
 
-  opts.on("-r", "--repository [REPO_FOLDER]", "Folder to use for bare source repository", "Defaults to #{default_folders[:repo]}/<project>") do |repo_folder|
+  opts.on("-r", "--repository [REPO_FOLDER]", "Folder to use for bare source repository", "Defaults to #{default_folders[:repo]}/<project>.git") do |repo_folder|
     options[:folders][:repo]=repo_folder
   end
 
@@ -87,6 +87,7 @@ begin
 
     result=`echo "#{group_commands.join("\n")}" | dscl .`
     #Check for errors here...
+    raise "Failed to create group" if /DS Error/.match(result)
   end
 
   project=parser.parse!(ARGV).first
@@ -107,19 +108,27 @@ begin
   create_group(options[:group], project, *options[:users])
 
   default_folders.each do |name, folder|
-    options[:folders][name]="#{folder}#{FOLDER_SEPARATOR}#{project}" unless options[:folders][name]
+    options[:folders][name]="#{folder}#{FOLDER_SEPARATOR}#{project}.git" unless options[:folders][name]
     raise "#{options[:folders][name]} already exists" if Dir.exist?(options[:folders][name])
     puts "Creating folder: #{options[:folders][name]}"
     begin
-      Dir.mkdir(options[:folders][name], 0770)
+      Dir.mkdir(options[:folders][name])
     rescue SystemCallError
       raise "Couldn't create folder."
     end
     created_folders<<options[:folders][:name]
+    # change folder ownership
+    `chown git:#{options[:group]} "#{options[:folders][name]}"`
+    # and change folder permissions
+    `chmod og+rwx "#{options[:folders][name]}"`
   end
 
   # Initialize the bare repo
+  old_umask=`umask`
+  # first make sure it'll set it up with proper permissions
+  `umask 002`
   result=`git init --bare #{options[:folders][:repo]}`
+  `umask #{old_umask}`
 rescue => e
   abort(e.message)
 end
