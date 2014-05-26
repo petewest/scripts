@@ -98,7 +98,6 @@ begin
     rescue SystemCallError
       raise "Couldn't create folder."
     end
-    created_folders<<folder_name
   end
 
   project=parser.parse!(ARGV).first
@@ -122,6 +121,7 @@ begin
   options[:folders][:working]="#{default_folders[:working]}#{FOLDER_SEPARATOR}#{project}" unless options[:folders][:working]
   options[:folders].each do |name, folder|
     create_folder(folder)
+    created_folders<<folder
   end
 
   # Initialize the bare repo
