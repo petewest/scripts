@@ -102,8 +102,7 @@ begin
 
   def create_hooks(opts)
     hooks={}
-    hooks[:post_receive]=%Q{
-      #!/bin/bash
+    hooks[:post_receive]=%Q{#!/bin/bash
       DEPLOY=#{opts[:folders][:working]}
       RAILS_ENV=development
 
