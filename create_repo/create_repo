@@ -120,7 +120,7 @@ begin
     }
 
     hooks.each do |file, contents|
-      File.open("#{opts[:folders][:repo]}/hooks/#{file}", "w", 0774) do |f|
+      File.open("#{opts[:folders][:repo]}/hooks/#{file.gsub(/_/,"-")}", "w", 0774) do |f|
         f.puts(contents)
       end
     end
@@ -162,7 +162,7 @@ begin
     # change folder ownership
     `chown -R git:#{options[:group]} "#{folder}"`
     # and change folder permissions
-    `chmod -R og+rw "#{folder}"`
+    `chmod -R ug+rw "#{folder}"`
   end
 rescue => e
   abort(e.message)
