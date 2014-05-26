@@ -2,31 +2,45 @@
 
 require 'optparse'
 
+FOLDER_SEPARATOR='/'
+
+# default folder locations
+default_folders = {
+  :repo => '/var/git',
+  :working => '/var/rails'
+}
+
 # arguments will have project name and optional list of users
 options = {
-  :user => ["git", `whoami`.chomp],
-  :folders => {
-    :repo => '/var/git',
-    :working => '/var/rails'
-  }
+  :users => %w(git),
+  :folders => {}
 }
+
+created_folders=[]
 
 parser = OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} [options] <project>"
 
-  opts.on("-r", "--repository [REPO_FOLDER]", "Folder to use for bare source repository", "Defaults to #{options[:repo_folder]}") do |repo_folder|
-    options[:folder][:repo]=repo_folder
+  opts.on("-r", "--repository [REPO_FOLDER]", "Folder to use for bare source repository", "Defaults to #{default_folders[:repo]}/<project>") do |repo_folder|
+    options[:folders][:repo]=repo_folder
   end
-  opts.on("-w", "--working [WORKING_FOLDER]", "Folder to use for working folder","(checked-out source)","Defaults to #{options[:working_folder]}") do |working_folder|
-    options[:folder][:working]=working_folder
+
+  opts.on("-w", "--working [WORKING_FOLDER]", "Folder to use for working folder","(checked-out source)","Defaults to #{default_folders[:working]}/<project>") do |working_folder|
+    options[:folders][:working]=working_folder
   end
 
   opts.on("-g", "--group [GROUP]", "Group name to use (will use project name if not specified)") do |group|
     options[:group]=group
   end
+
   opts.on("-u", "--user [USER]", "Add user to the source control group (can be specified multiple times)") do |user|
-    options[:user]<<user
+    options[:users]<<user
   end
+
+  opts.on("--not_current_user", "Don't add the current user to the repo access list") do 
+    options[:not_current_user]=true
+  end
+
   opts.on_tail("-h", "--help", "Show this screen") do
     puts opts
     exit
@@ -34,18 +48,78 @@ parser = OptionParser.new do |opts|
 
 end
 
-project=parser.parse!(ARGV).first
+# Start a begin..rescue block so that we can raise for errors
+begin
 
-if project.nil?
-  puts parser.help
-  exit
+  def create_group(group_name, project, *users)
+    # remove any dodgy characters from group name
+    group_name=group_name.gsub(/[^\w]/,"_")
+
+    # OS X specific group creation
+
+    # Check if group already exists
+    # by finding the list of all groups, and their group id
+    existing_groups=`dscl . list /Groups gid`.split("\n")
+    # Split each line to [group, id], then create a hash
+    existing_groups=existing_groups.map(&:split).to_h
+
+    group_id=existing_groups.values.map(&:to_i).max + 1
+
+    raise "Group #{group_name} already exists." if existing_groups.has_key?(group_name)
+
+    # Group creation commands
+    base="create /Groups/#{group_name}"
+    group_commands=[]
+    group_commands<<base
+    # Set the name
+    group_commands<<%Q{#{base} RealName 'Group for source control on #{project}'}
+    group_commands<<%Q{#{base} passwd '*'}
+    group_commands<<%Q{#{base} gid #{group_id}}
+    # Add users to group
+    users.each.with_index do |user, index|
+      # Have to process it differently if it's the first or subsequent
+      if index==0
+        group_commands<<%Q{#{base} GroupMembership #{user}}
+      else
+        group_commands<<%Q{append /Groups/#{group_name} GroupMembership #{user}}
+      end
+    end
+
+    result=`echo "#{group_commands.join("\n")}" | dscl .`
+    #Check for errors here...
+  end
+
+  project=parser.parse!(ARGV).first
+
+  if project.nil?
+    raise parser.help
+  end
+
+  if /[^\w]/.match(project)
+    raise "Project name contains invalid characters (only letters, numbers and _ allowed)"
+  end
+
+  # Set up any other options
+  options[:users]<<`whoami`.chomp unless options[:not_current_user]
+
+  options[:group]=project if options[:group].nil?
+
+  create_group(options[:group], project, *options[:users])
+
+  default_folders.each do |name, folder|
+    options[:folders][name]="#{folder}#{FOLDER_SEPARATOR}#{project}" unless options[:folders][name]
+    raise "#{options[:folders][name]} already exists" if Dir.exist?(options[:folders][name])
+    puts "Creating folder: #{options[:folders][name]}"
+    begin
+      Dir.mkdir(options[:folders][name], 0770)
+    rescue SystemCallError
+      raise "Couldn't create folder."
+    end
+    created_folders<<options[:folders][:name]
+  end
+
+  # Initialize the bare repo
+  result=`git init --bare #{options[:folders][:repo]}`
+rescue => e
+  abort(e.message)
 end
-
-options[:group]=project if options[:group].nil?
-# Strip out any dodgy characters
-options[:group].gsub!(/\//,"_")
-
-puts options.inspect
-
-puts "Checking if bare repo already exists"
-
