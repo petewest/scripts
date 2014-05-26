@@ -90,6 +90,21 @@ begin
     raise "Failed to create group" if /DS Error/.match(result)
   end
 
+  def create_folder(folder_name)
+    raise "#{folder_name} already exists" if Dir.exist?(folder_name)
+    puts "Creating folder: #{folder_name}"
+    begin
+      Dir.mkdir(folder_name)
+    rescue SystemCallError
+      raise "Couldn't create folder."
+    end
+    created_folders<<folder_name
+    # change folder ownership
+    `chown git:#{options[:group]} "#{folder_name}"`
+    # and change folder permissions
+    `chmod og+rwx "#{folder_name}"`
+  end
+
   project=parser.parse!(ARGV).first
 
   if project.nil?
@@ -107,26 +122,17 @@ begin
 
   create_group(options[:group], project, *options[:users])
 
-  default_folders.each do |name, folder|
-    options[:folders][name]="#{folder}#{FOLDER_SEPARATOR}#{project}.git" unless options[:folders][name]
-    raise "#{options[:folders][name]} already exists" if Dir.exist?(options[:folders][name])
-    puts "Creating folder: #{options[:folders][name]}"
-    begin
-      Dir.mkdir(options[:folders][name])
-    rescue SystemCallError
-      raise "Couldn't create folder."
-    end
-    created_folders<<options[:folders][:name]
-    # change folder ownership
-    `chown git:#{options[:group]} "#{options[:folders][name]}"`
-    # and change folder permissions
-    `chmod og+rwx "#{options[:folders][name]}"`
+  options[:folders][:repo]="#{folder}#{FOLDER_SEPARATOR}#{project}.git" unless options[:folders][:repo]
+  options[:folders][:working]="#{folder}#{FOLDER_SEPARATOR}#{project}" unless options[:folders][:working]
+  options[:folders].each do |name, folder|
+    create_folder(folder)
   end
 
   # Initialize the bare repo
   old_umask=`umask`
   # first make sure it'll set it up with proper permissions
   `umask 002`
+  puts "Initialiazing bare git repo"
   result=`git init --bare #{options[:folders][:repo]}`
   `umask #{old_umask}`
 rescue => e
