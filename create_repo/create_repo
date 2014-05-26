@@ -119,7 +119,7 @@ begin
     }
 
     hooks.each do |file, contents|
-      File.open("#{opts[:folders][:repo]}/hooks/#{file.gsub(/_/,"-")}", "w", 0774) do |f|
+      File.open("#{opts[:folders][:repo]}/hooks/#{file.to_s.gsub(/_/,"-")}", "w", 0774) do |f|
         f.puts(contents)
       end
     end
