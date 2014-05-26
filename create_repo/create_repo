@@ -133,7 +133,7 @@ begin
     # change folder ownership
     `chown -R git:#{options[:group]} "#{folder}"`
     # and change folder permissions
-    `chmod -R og+rwx "#{folder}"`
+    `chmod -R og+rw "#{folder}"`
   end
 rescue => e
   abort(e.message)
