@@ -100,6 +100,33 @@ begin
     end
   end
 
+  def create_hooks(opts)
+    hooks={}
+    hooks[:post_receive]=%Q{
+      #!/bin/bash
+      DEPLOY=#{opts[:folders][:working]}
+      RAILS_ENV=development
+
+      umask 002
+      GIT_WORK_TREE="$DEPLOY" git checkout -f
+
+      cd "$DEPLOY"
+
+      echo "Updating bundle"
+      bundle install --deployment --without production
+
+      echo "Migrating database"
+      bundle exec rake db:migrate
+    }
+
+    hooks.each do |file, contents|
+      File.open(opts[:folders][:repo] + '/hooks/' +  file, "w", 0774) do |f|
+        f.puts(contents)
+      end
+    end
+    
+  end
+
   project=parser.parse!(ARGV).first
 
   if project.nil?
@@ -127,6 +154,8 @@ begin
   # Initialize the bare repo
   puts "Initialiazing bare git repo"
   result=`git init --bare #{options[:folders][:repo]}`
+
+  create_hooks(options)
 
   # Now set the ownership and permissions on the created folders and files
   created_folders.each do |folder|
