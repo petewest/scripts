@@ -99,10 +99,6 @@ begin
       raise "Couldn't create folder."
     end
     created_folders<<folder_name
-    # change folder ownership
-    `chown git:#{options[:group]} "#{folder_name}"`
-    # and change folder permissions
-    `chmod og+rwx "#{folder_name}"`
   end
 
   project=parser.parse!(ARGV).first
@@ -129,12 +125,16 @@ begin
   end
 
   # Initialize the bare repo
-  old_umask=`umask`
-  # first make sure it'll set it up with proper permissions
-  `umask 002`
   puts "Initialiazing bare git repo"
   result=`git init --bare #{options[:folders][:repo]}`
-  `umask #{old_umask}`
+
+  # Now set the ownership and permissions on the created folders and files
+  created_folders.each do |folder|
+    # change folder ownership
+    `chown -R git:#{options[:group]} "#{folder}"`
+    # and change folder permissions
+    `chmod -R og+rwx "#{folder}"`
+  end
 rescue => e
   abort(e.message)
 end
