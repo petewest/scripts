@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+
+# arguments will have project name and optional list of users
+options = {
+  :user => ["git", `whoami`.chomp],
+  :folders => {
+    :repo => '/var/git',
+    :working => '/var/rails'
+  }
+}
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} [options] <project>"
+
+  opts.on("-r", "--repository [REPO_FOLDER]", "Folder to use for bare source repository", "Defaults to #{options[:repo_folder]}") do |repo_folder|
+    options[:folder][:repo]=repo_folder
+  end
+  opts.on("-w", "--working [WORKING_FOLDER]", "Folder to use for working folder","(checked-out source)","Defaults to #{options[:working_folder]}") do |working_folder|
+    options[:folder][:working]=working_folder
+  end
+
+  opts.on("-g", "--group [GROUP]", "Group name to use (will use project name if not specified)") do |group|
+    options[:group]=group
+  end
+  opts.on("-u", "--user [USER]", "Add user to the source control group (can be specified multiple times)") do |user|
+    options[:user]<<user
+  end
+  opts.on_tail("-h", "--help", "Show this screen") do
+    puts opts
+    exit
+  end
+
+end
+
+project=parser.parse!(ARGV).first
+
+if project.nil?
+  puts parser.help
+  exit
+end
+
+options[:group]=project if options[:group].nil?
+# Strip out any dodgy characters
+options[:group].gsub!(/\//,"_")
+
+puts options.inspect
+
+puts "Checking if bare repo already exists"
+
