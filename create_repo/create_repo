@@ -120,7 +120,7 @@ begin
     }
 
     hooks.each do |file, contents|
-      File.open(opts[:folders][:repo] + '/hooks/' +  file, "w", 0774) do |f|
+      File.open("#{opts[:folders][:repo]}/hooks/#{file}", "w", 0774) do |f|
         f.puts(contents)
       end
     end
