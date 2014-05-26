@@ -118,8 +118,8 @@ begin
 
   create_group(options[:group], project, *options[:users])
 
-  options[:folders][:repo]="#{folder}#{FOLDER_SEPARATOR}#{project}.git" unless options[:folders][:repo]
-  options[:folders][:working]="#{folder}#{FOLDER_SEPARATOR}#{project}" unless options[:folders][:working]
+  options[:folders][:repo]="#{default_folders[:repo]}#{FOLDER_SEPARATOR}#{project}.git" unless options[:folders][:repo]
+  options[:folders][:working]="#{default_folders[:working]}#{FOLDER_SEPARATOR}#{project}" unless options[:folders][:working]
   options[:folders].each do |name, folder|
     create_folder(folder)
   end
