@@ -106,6 +106,8 @@ begin
       DEPLOY=#{opts[:folders][:working]}
       RAILS_ENV=development
 
+      source /usr/local/rvm/scripts/rvm
+      
       umask 002
       GIT_WORK_TREE="$DEPLOY" git checkout -f
 
